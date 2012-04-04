@@ -25,32 +25,8 @@ execute_request = (app, funs, req, res, data) ->
         app['log_request'](req, res, true)
 
 
-fake_response = (req, res) ->
-        # This is quite simplistic, don't expect much.
-        headers = {'Connection': 'close'}
-        res.writeHead = (status, user_headers = {}) ->
-            r = []
-            r.push('HTTP/' + req.httpVersion + ' ' + status +
-                   ' ' + http.STATUS_CODES[status])
-            utils.objectExtend(headers, user_headers)
-            for k of headers
-                r.push(k + ': ' + headers[k])
-            r = r.concat(['', ''])
-            try
-                res.write(r.join('\r\n'))
-            catch e
-                null
-            try
-                res.end()
-            catch e
-                null
-        res.setHeader = (k, v) -> headers[k] = v
-
-
 exports.generateHandler = (app, dispatcher) ->
-    return (req, res, head) ->
-        if typeof res.writeHead is "undefined"
-            fake_response(req, res)
+    return (req, res) ->
         utils.objectExtend(req, url.parse(req.url, true))
         req.start_date = new Date()
 
@@ -73,7 +49,7 @@ exports.generateHandler = (app, dispatcher) ->
             funs.push('log_request')
             req.next_filter = (data) ->
                 execute_request(app, funs, req, res, data)
-            req.next_filter(head)
+            req.next_filter()
             found = true
             break
 

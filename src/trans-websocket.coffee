@@ -5,7 +5,7 @@ transport = require('./transport')
 
 
 exports.app =
-    _websocket_check: (req, connection, head) ->
+    _websocket_check: (req, res) ->
         # Request via node.js magical 'upgrade' event.
         if (req.headers.upgrade || '').toLowerCase() isnt 'websocket'
             throw {
@@ -26,33 +26,34 @@ exports.app =
                 message: 'Unverified origin.'
             }
 
-    sockjs_websocket: (req, connection, head) ->
-        @_websocket_check(req, connection, head)
-        ws = new FayeWebsocket(req, connection, head)
+    sockjs_websocket: (req, res) ->
+        @_websocket_check(req, res)
+        ws = new FayeWebsocket(req, res)
         ws.onopen = =>
             # websockets possess no session_id
             transport.registerNoSession(req, @,
-                                        new WebSocketReceiver(ws, connection))
+                                        new WebSocketReceiver(req, ws))
         return true
 
-    raw_websocket: (req, connection, head) ->
-        @_websocket_check(req, connection, head)
+    raw_websocket: (req, res) ->
+        @_websocket_check(req, res)
         ver = req.headers['sec-websocket-version'] or ''
         if ['8', '13'].indexOf(ver) is -1
             throw {
                 status: 400
                 message: 'Only supported WebSocket protocol is RFC 6455.'
             }
-        ws = new FayeWebsocket(req, connection, head)
+        ws = new FayeWebsocket(req, res)
         ws.onopen = =>
-            new RawWebsocketSessionReceiver(req, connection, @, ws)
+            new RawWebsocketSessionReceiver(req, @, ws)
         return true
 
 
 class WebSocketReceiver extends transport.GenericReceiver
     protocol: "websocket"
 
-    constructor: (@ws, @connection) ->
+    constructor: (req, @ws) ->
+        @connection = req.socket
         try
             @connection.setKeepAlive(true, 5000)
             @connection.setNoDelay(true)
@@ -98,10 +99,10 @@ Transport = transport.Transport
 
 # Inheritance only for decorateConnection.
 class RawWebsocketSessionReceiver extends transport.Session
-    constructor: (req, conn, server, @ws) ->
+    constructor: (req, server, @ws) ->
         @prefix = server.options.prefix
         @readyState = Transport.OPEN
-        @recv = {connection: conn}
+        @recv = {connection: req.socket}
 
         @connection = new transport.SockJSConnection(@)
         @decorateConnection(req)

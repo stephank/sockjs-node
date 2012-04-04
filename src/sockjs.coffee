@@ -110,15 +110,15 @@ class Listener
         @webjs_handler = webjs.generateHandler(@app, @dispatcher)
         @path_regexp = new RegExp('^' + @options.prefix  + '([/].+|[/]?)$')
 
-    handler: (req, res, extra) =>
+    handler: (req, res) =>
         # All urls that match the prefix must be handled by us.
         if not req.url.match(@path_regexp)
             return false
-        @webjs_handler(req, res, extra)
+        @webjs_handler(req, res)
         return true
 
     getHandler: () ->
-        return (a,b,c) => @handler(a,b,c)
+        return (a,b) => @handler(a,b)
 
 
 class Server extends events.EventEmitter
